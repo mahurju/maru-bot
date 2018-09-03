@@ -5,7 +5,8 @@ const stringify = require('json-stable-stringify');
 const users = require('../../db')();
 const { numberformat } = require('../utils');
 const { checkAddressPattern } = require('./helpers');
-
+const { showBalance: showBal } = require('./show');
+ 
 let bot = null;
 const jobs = {};
 
@@ -34,7 +35,8 @@ const showBalance = async (chatId) => {
         const bal = Math.floor(balance) || 0;
         const preBal = preTokens[name] || 0;
         if (bal !== preBal && Object.keys(preTokens).length > 0) {
-          changed.push(`<b> - ${name}:  ${numberformat(preBal)} => ${numberformat(bal)}</b>`);
+          const diff = parseInt(bal - preBal, 10);
+          changed.push(`<b> - ${name}:  ${numberformat(preBal)} -> ${numberformat(bal)} (${diff > 0 ? `+${diff}` : diff})</b>`);
         }
 
         if (bal > 0) {
@@ -48,7 +50,7 @@ const showBalance = async (chatId) => {
         const updates = {};
         updates[`/tron/${chatId}/address/${addr}/tokens`] = currentTokens;
         updates[`/tron/${chatId}/address/${addr}/updateTime`] = new Date();
-        users.update(updates);
+        await users.update(updates);
         if (changed.length > 0) {
           msg += '<b>* Balance changes</b>\n';
           msg += changed.join('\n');
@@ -70,6 +72,12 @@ const showBalance = async (chatId) => {
 };
 
 exports.addAddress = async (chatId, addr, reply) => {
+  const currentUsers = await users.child('/tron').once('value');
+  
+  if (Object.keys(currentUsers).length > 300) {
+    return reply('exceeded maximum users. Please contact to marucool9@gmail.com');
+  }
+
   if (!checkAddressPattern(addr)) return reply('Invalid address.');
   const data = await users.child(`/tron/${chatId}/address`).once('value');
   console.log(data.val());
@@ -78,20 +86,30 @@ exports.addAddress = async (chatId, addr, reply) => {
   if (address[addr]) {
     return reply('Already added tron address.');
   }
+
+  if (Object.keys(address).length > 4) {
+    return reply('You can add address up to 5.');
+  }
+
+  let initListen = false;
+  if (Object.keys(address).length === 0) {
+    initListen = true;
+  }
   address[addr] = {
     createTime: new Date(),
   };
   updates[`/tron/${chatId}/address`] = address;
-  users.update(updates);
+  await users.update(updates);
+  if (initListen) await this.startListenAccount(chatId);
   return reply(`${addr} tron address added.`);
 };
 
-exports.getAddresses = async (reply, chatId) => {
-  const data = await users.child(`/tron/${chatId}/address`).once('value');
-  const address = data.val() || [];
-  if (address.length === 0) return reply('No added tron addresses.');
-  return reply(address.join('\n'));
-};
+// exports.getAddresses = async (reply, chatId) => {
+//   const data = await users.child(`/tron/${chatId}/address`).once('value');
+//   const address = data.val() || [];
+//   if (address.length === 0) return reply('No added tron addresses.');
+//   return reply(address.join('\n'));
+// };
 
 exports.startListenAccount = async (chatId, send = true) => {
   const data = await users.child(`/tron/${chatId}/address`).once('value');
@@ -113,12 +131,12 @@ exports.startListenAccount = async (chatId, send = true) => {
   };
   const updates = {};
   updates[`/tron/${chatId}/listenChangeBalances`] = true;
-  users.update(updates);
+  await users.update(updates);
   if (send) return bot.telegram.sendMessage(chatId, 'Started listening change balance.');
   return false;
 };
 
-exports.stopListenAccount = (reply, chatId) => {
+exports.stopListenAccount = async (reply, chatId) => {
   const { job = {} } = jobs[chatId];
 
   console.log(job && job.nextInvocation());
@@ -130,7 +148,7 @@ exports.stopListenAccount = (reply, chatId) => {
   job.cancel();
   const updates = {};
   updates[`/tron/${chatId}/listenChangeBalances`] = false;
-  users.update(updates);
+  await users.update(updates);
   return reply('stopped listening chanage balance.');
 };
 
@@ -158,7 +176,7 @@ exports.removeAddress = async (chatId, addr, reply) => {
   const address = data.val() || {};
   if (address[addr]) {
     updates[`/tron/${chatId}/address/${addr}`] = null;
-    users.update(updates);
+    await users.update(updates);
     if (Object.keys(address).length === 1) {
       this.stopListenAccount(reply, chatId);
     }
@@ -167,17 +185,29 @@ exports.removeAddress = async (chatId, addr, reply) => {
   return reply('Not found tron address.');
 };
 
+exports.showBalances = async (reply, chatId) => {
+  const data = await users.child(`/tron/${chatId}/address`).once('value');
+  const addresses = data.val() || {};
+  if (Object.keys(addresses).length === 0) {
+    return reply('No added tron addresses.');
+  }
+
+  await Promise.all(Object.keys(addresses).map(async (address) => {
+    await showBal(reply, address);
+  }));
+};
+
 exports.initListen = async (myBot) => {
   bot = myBot;
-  const data = await users.child('/tron').once('value');
-  const allUsers = data.val();
-  console.log(allUsers);
-  for (const chatId of Object.keys(allUsers)) {
-    const { listenChangeBalances } = allUsers[chatId] || {};
-    if (listenChangeBalances === true) {
-      await this.startListenAccount(chatId, false);
-    }
-  }
+  // const data = await users.child('/tron').once('value');
+  // const allUsers = data.val();
+  // console.log(allUsers);
+  // for (const chatId of Object.keys(allUsers)) {
+  //   const { listenChangeBalances } = allUsers[chatId] || {};
+  //   if (listenChangeBalances === true) {
+  //     await this.startListenAccount(chatId, false);
+  //   }
+  // }
 };
 
 // exports.initListen = async (myBot) => {
