@@ -3,7 +3,7 @@ const { Client } = require('@tronscan/client');
 const { getAllAccountInstances } = require('./helpers');
 const { numberformat } = require('../utils');
 
-exports.showBalances = async (reply, password) => {
+exports.showMyBalances = async (reply, password) => {
   const accounts = getAllAccountInstances(password);
   await Promise.all(accounts.map(async ({ address, client }) => {
     let msg = `<b>${address}</b>\n\n`;

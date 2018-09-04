@@ -1,7 +1,7 @@
 const Telegraf = require('telegraf');
 const nconf = require('nconf');
 const { encrypt } = require('./utils');
-const { showBalance, showBalances, transfer, addAddress, getAddress, removeAddress, startListenAccount, stopListenAccount, initListen } = require('./tron');
+const { showBalance, showMyBalances, showBalances, transfer, addAddress, getAddress, removeAddress, startListenAccount, stopListenAccount, initListen } = require('./tron');
 
 const { token, myChatId } = nconf.get('telegram');
 const bot = new Telegraf(token);
@@ -15,17 +15,22 @@ const run = async () => {
     return entities.some(e => e.type === 'bot_command');
   };
 
-  const helpMsg = ['/addaddress [Add tron address]',
-    '/getaddress [Show tron addresses]',
-    '/removeaddress [Remove tron address]',
-    '/startlisten [Start listening to change balance]',
-    '/stoplisten [Stop listening tp change balance.]',
-    '/address [Show balance of address]'];
+  const helpMsg = ['/addaddress Add tron address',
+    '/getaddress Show added addresses',
+    '/removeaddress Remove tron address',
+    '/startlisten Start listening to change balance',
+    '/stoplisten Stop listening to change balance.',
+    '/address Show balance of input address',
+    '/showbalances Show balance of added address'];
 
   bot.help(ctx => ctx.reply(helpMsg.join('\n')));
   bot.start(ctx => ctx.reply(helpMsg.join('\n')));
 
   bot.command('address', ({ reply }) => reply('/address  Reply tron address to show balance.', { reply_markup: { force_reply: true, selective: true } }));
+
+  bot.command('showbalances', async ({ reply, from: { id: resChatId } }) => {
+    await showBalances(reply, resChatId);
+  });
 
   bot.command('startlisten', async ({ from: { id: resChatId } }) => {
     await startListenAccount(resChatId);
@@ -83,7 +88,7 @@ const run = async () => {
           if (myChatId === resChatId) {
             try {
               const password = message.text;
-              await showBalances(reply, password);
+              await showMyBalances(reply, password);
             } catch (err) {
               reply(`Error Occured: ${JSON.stringify(err)}`);
             }
