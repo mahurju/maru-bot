@@ -1,6 +1,6 @@
 const Telegraf = require('telegraf');
 const nconf = require('nconf');
-const { encrypt } = require('./utils');
+const { encrypt, decrypt } = require('./utils');
 const { showBalance, showMyBalances, showBalances, transfer, addAddress, getAddress, removeAddress, startListenAccount, stopListenAccount, initListen } = require('./tron');
 
 const { token, myChatId } = nconf.get('telegram');
@@ -57,6 +57,16 @@ const run = async () => {
       const [, password] = (text || '').split(' ');
       encrypt(password);
       reply('updated.');
+    } else {
+      reply('Unauthorized user.');
+    }
+  });
+
+  bot.command('decrypt', async ({ reply, from: { id: resChatId }, message: { text } }) => {
+    if (myChatId === resChatId) {
+      const [, password] = (text || '').split(' ');
+      decrypt(password);
+      reply('decrypted.');
     } else {
       reply('Unauthorized user.');
     }

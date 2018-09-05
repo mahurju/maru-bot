@@ -3,6 +3,7 @@ const fs = require('fs');
 const nconf = require('nconf');
 const yaml = require('js-yaml');
 const path = require('path');
+const jsonfile = require('jsonfile');
 
 /* eslint-disable no-restricted-globals */
 const numberformat = (value) => {
@@ -27,7 +28,8 @@ const numberformat = (value) => {
 const encrypt = (pw) => {
   const password = `${nconf.get('tron:password')}${pw}`;
   const cipher = crypto.createCipher('aes-256-cbc', password);
-  const { accounts } = yaml.safeLoad(fs.readFileSync(path.join(__dirname, '..', '..', '.data', 'private-keys.yml'), 'utf8'));
+  const accounts = jsonfile.readFileSync(path.join(__dirname, '..', '..', '.data', 'private-keys.json'), { throws: false }) || {};
+  // const { accounts } = yaml.safeLoad(fs.readFileSync(path.join(__dirname, '..', '..', '.data', 'private-keys.yml'), 'utf8'));
   const encrypted = Buffer.concat([cipher.update(Buffer.from(JSON.stringify(accounts), 'utf8')), cipher.final()]);
   fs.writeFileSync(path.join(__dirname, '..', '..', '.data', 'safe.dat'), encrypted);
 };
@@ -38,6 +40,7 @@ const decrypt = (pw) => {
   const decipher = crypto.createDecipher('aes-256-cbc', password);
   const decrypted = Buffer.concat([decipher.update(data), decipher.final()]);
   const accounts = JSON.parse(decrypted.toString());
+  jsonfile.writeFileSync(path.join(__dirname, '..', '..', '.data', 'private-keys.json'), accounts, { spaces: 2 });
   return accounts;
 };
 
