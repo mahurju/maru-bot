@@ -31,6 +31,7 @@ const encrypt = (pw) => {
   const accounts = jsonfile.readFileSync(path.join(__dirname, '..', '..', '.data', 'private-keys.json'), { throws: false }) || {};
   // const { accounts } = yaml.safeLoad(fs.readFileSync(path.join(__dirname, '..', '..', '.data', 'private-keys.yml'), 'utf8'));
   const encrypted = Buffer.concat([cipher.update(Buffer.from(JSON.stringify(accounts), 'utf8')), cipher.final()]);
+  jsonfile.writeFileSync(path.join(__dirname, '..', '..', '.data', 'private-keys.json'), {}, { spaces: 2 });
   fs.writeFileSync(path.join(__dirname, '..', '..', '.data', 'safe.dat'), encrypted);
 };
 
